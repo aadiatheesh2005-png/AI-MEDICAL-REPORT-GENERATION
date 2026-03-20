@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedAI — Create Account</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0a1628;--royal:#1a3a6b;--blue:#2563eb;--blue-light:#3b82f6;--gray-400:#94a3b8;--gray-800:#1e293b;--white:#ffffff; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--navy);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+  .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;}
+  .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.15;animation:float 8s ease-in-out infinite;}
+  .orb-1{width:500px;height:500px;background:var(--blue);top:-100px;right:-100px;animation-delay:0s;}
+  .orb-2{width:400px;height:400px;background:#059669;bottom:-100px;left:-100px;animation-delay:2s;}
+  @keyframes float{0%,100%{transform:translate(0,0);}50%{transform:translate(15px,-15px);}}
+  .card{position:relative;z-index:1;background:rgba(255,255,255,0.03);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:44px;width:480px;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:slideUp 0.6s ease;}
+  @keyframes slideUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+  .logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+  .logo-icon{width:44px;height:44px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+  .logo-text{font-family:'Playfair Display',serif;font-size:22px;color:var(--white);font-weight:700;}
+  .logo-sub{font-size:11px;color:var(--gray-400);letter-spacing:0.05em;text-transform:uppercase;}
+  h1{font-family:'Playfair Display',serif;font-size:26px;color:var(--white);margin-bottom:6px;}
+  .subtitle{font-size:14px;color:var(--gray-400);margin-bottom:28px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .form-group{margin-bottom:18px;}
+  label{display:block;font-size:12px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px;}
+  input,select{width:100%;padding:12px 15px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:11px;color:var(--white);font-size:14px;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+  select option{background:#1e293b;color:var(--white);}
+  input:focus,select:focus{outline:none;border-color:var(--blue);background:rgba(37,99,235,0.1);box-shadow:0 0 0 3px rgba(37,99,235,0.2);}
+  input::placeholder{color:var(--gray-400);}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;background:linear-gradient(135deg,#059669,#0891b2);color:var(--white);transition:all 0.2s;margin-top:6px;}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(5,150,105,0.4);}
+  .btn:disabled{opacity:0.7;cursor:not-allowed;transform:none;}
+  .switch{text-align:center;margin-top:20px;font-size:14px;color:var(--gray-400);}
+  .switch a{color:var(--blue-light);text-decoration:none;font-weight:600;}
+  .error-msg{background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#fca5a5;margin-bottom:14px;display:none;}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .role-card{padding:12px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:11px;cursor:pointer;transition:all 0.2s;text-align:center;}
+  .role-card:hover{border-color:var(--blue);}
+  .role-card.selected{border-color:var(--blue);background:rgba(37,99,235,0.15);}
+  .role-card .icon{font-size:20px;margin-bottom:4px;}
+  .role-card .name{font-size:12px;font-weight:600;color:var(--white);}
+  .role-card .desc{font-size:10px;color:var(--gray-400);}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🧬</div>
+    <div><div class="logo-text">MedAI</div><div class="logo-sub">Diagnostic Intelligence</div></div>
+  </div>
+  <h1>Create Your Account</h1>
+  <p class="subtitle">Free access to AI-powered medical diagnostics</p>
+  <div class="error-msg" id="errorMsg"></div>
+  <form id="signupForm">
+    <input type="hidden" name="role" id="roleInput" value="patient">
+    <div class="form-group">
+      <label>I am a</label>
+      <div class="role-grid">
+        <div class="role-card selected" onclick="selectRole('patient', this)">
+          <div class="icon">🏥</div><div class="name">Patient</div><div class="desc">Personal health tracking</div>
+        </div>
+        <div class="role-card" onclick="selectRole('doctor', this)">
+          <div class="icon">👨‍⚕️</div><div class="name">Healthcare Provider</div><div class="desc">Clinical diagnostics</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="name" placeholder="Dr. Sarah Johnson" required>
+    </div>
+    <div class="row2">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email" placeholder="your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Min. 6 characters" required minlength="6">
+      </div>
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Create Free Account</button>
+  </form>
+  <div class="switch">Already have an account? <a href="/signin">Sign in</a></div>
+</div>
+<script>
+function selectRole(role, el) {
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('roleInput').value = role;
+}
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const err = document.getElementById('errorMsg');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating account...';
+  err.style.display = 'none';
+  const fd = new FormData(e.target);
+  const res = await fetch('/signup', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.success) {
+    btn.innerHTML = '✓ Account created!';
+    setTimeout(() => window.location.href = '/dashboard', 600);
+  } else {
+    err.textContent = data.message || 'Signup failed';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = 'Create Free Account';
+  }
+});
+</script>
+</body>
+</html>

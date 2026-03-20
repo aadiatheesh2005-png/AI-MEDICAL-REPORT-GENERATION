@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedAI — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0a1628;--royal:#1a3a6b;--blue:#2563eb;--blue-light:#3b82f6;--success:#059669;--warning:#d97706;--danger:#dc2626;--gray-50:#f8fafc;--gray-100:#f1f5f9;--gray-200:#e2e8f0;--gray-400:#94a3b8;--gray-600:#475569;--gray-800:#1e293b;--white:#ffffff;--sidebar-w:240px; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:#f0f4ff;color:var(--gray-800);min-height:100vh;display:flex;}
+  .sidebar{width:var(--sidebar-w);background:var(--navy);min-height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;z-index:10;box-shadow:4px 0 20px rgba(0,0,0,0.2);}
+  .sidebar-logo{padding:24px 20px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .logo-row{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:38px;height:38px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .logo-text{font-family:'Playfair Display',serif;font-size:18px;color:var(--white);font-weight:700;}
+  .logo-sub{font-size:9px;color:var(--gray-400);letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
+  .sidebar-nav{flex:1;padding:16px 12px;}
+  .nav-label{font-size:9px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.1em;padding:8px 8px 6px;margin-top:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--gray-400);font-size:14px;font-weight:500;text-decoration:none;transition:all 0.2s;margin-bottom:2px;}
+  .nav-item:hover{background:rgba(255,255,255,0.06);color:var(--white);}
+  .nav-item.active{background:rgba(37,99,235,0.2);color:var(--blue-light);border-left:3px solid var(--blue);}
+  .nav-item .icon{font-size:16px;width:20px;text-align:center;}
+  .sidebar-bottom{padding:16px;border-top:1px solid rgba(255,255,255,0.08);}
+  .user-card{display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:10px;}
+  .avatar{width:36px;height:36px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--white);}
+  .user-info .name{font-size:13px;font-weight:600;color:var(--white);}
+  .user-info .role{font-size:10px;color:var(--gray-400);}
+  .logout-btn{width:100%;margin-top:10px;padding:8px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.2);border-radius:8px;color:#fca5a5;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+  .logout-btn:hover{background:rgba(220,38,38,0.2);}
+
+  .main{margin-left:var(--sidebar-w);flex:1;padding:32px;min-height:100vh;}
+  .page-header{margin-bottom:28px;}
+  .page-header h1{font-family:'Playfair Display',serif;font-size:28px;color:var(--navy);margin-bottom:4px;}
+  .page-header p{font-size:14px;color:var(--gray-600);}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+  .stat-card{background:var(--white);border-radius:16px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,0.06);border:1px solid var(--gray-200);}
+  .stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px;}
+  .stat-value{font-size:28px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+  .stat-label{font-size:12px;color:var(--gray-600);}
+
+  .section-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .new-report-btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:var(--white);padding:12px 22px;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(37,99,235,0.3);transition:all 0.2s;margin-bottom:24px;}
+  .new-report-btn:hover{background:var(--blue-light);transform:translateY(-1px);}
+
+  .reports-table{background:var(--white);border-radius:16px;border:1px solid var(--gray-200);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  .table-header{display:grid;grid-template-columns:80px 1fr 140px 80px 80px 110px;gap:0;background:var(--gray-50);border-bottom:1px solid var(--gray-200);}
+  .th{padding:12px 16px;font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;}
+  .report-row{display:grid;grid-template-columns:80px 1fr 140px 80px 80px 110px;border-bottom:1px solid var(--gray-100);transition:background 0.15s;}
+  .report-row:hover{background:var(--gray-50);}
+  .report-row:last-child{border-bottom:none;}
+  .td{padding:14px 16px;font-size:13px;color:var(--gray-800);display:flex;align-items:center;}
+  .report-id{font-family:monospace;font-size:12px;color:var(--blue);font-weight:700;}
+  .risk-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+  .risk-Low{background:#dcfce7;color:#166534;}
+  .risk-Moderate{background:#fef3c7;color:#92400e;}
+  .risk-High{background:#fee2e2;color:#991b1b;}
+  .risk-Critical{background:#ede9fe;color:#5b21b6;}
+  .action-btns{display:flex;gap:6px;}
+  .btn-sm{padding:5px 10px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all 0.2s;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+  .btn-view{background:#dbeafe;color:#1d4ed8;}
+  .btn-view:hover{background:#bfdbfe;}
+  .btn-dl{background:#dcfce7;color:#166534;}
+  .btn-dl:hover{background:#bbf7d0;}
+  .empty-state{padding:60px;text-align:center;color:var(--gray-400);}
+  .empty-state .icon{font-size:48px;margin-bottom:12px;}
+  .empty-state h3{font-size:16px;font-weight:600;color:var(--gray-600);margin-bottom:6px;}
+  .empty-state p{font-size:13px;}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-row">
+      <div class="logo-icon">🧬</div>
+      <div><div class="logo-text">MedAI</div><div class="logo-sub">Diagnostics</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-label">Main</div>
+    <a href="/dashboard" class="nav-item active"><span class="icon">📊</span> Dashboard</a>
+    <a href="/analyze" class="nav-item"><span class="icon">🔬</span> New Analysis</a>
+    <div class="nav-label">Information</div>
+    <a href="#" class="nav-item"><span class="icon">📋</span> Report History</a>
+    <a href="#" class="nav-item"><span class="icon">🏥</span> About MedAI</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="user-card">
+      <div class="avatar">{{ name[0].upper() }}</div>
+      <div class="user-info">
+        <div class="name">{{ name }}</div>
+        <div class="role">{{ email }}</div>
+      </div>
+    </div>
+    <form action="/logout"><button type="submit" class="logout-btn">↩ Sign Out</button></form>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="page-header">
+    <h1>Welcome back, {{ name.split()[0] }} 👋</h1>
+    <p>Here's your MedAI diagnostic overview</p>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#dbeafe;">📊</div>
+      <div class="stat-value">{{ reports|length }}</div>
+      <div class="stat-label">Total Reports Generated</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#dcfce7;">✅</div>
+      <div class="stat-value">{{ reports|selectattr('risk','equalto','Low')|list|length }}</div>
+      <div class="stat-label">Low Risk Assessments</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fef3c7;">⚠️</div>
+      <div class="stat-value">{{ (reports|selectattr('risk','equalto','Moderate')|list|length) + (reports|selectattr('risk','equalto','High')|list|length) }}</div>
+      <div class="stat-label">Moderate/High Risk</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#ede9fe;">🤖</div>
+      <div class="stat-value">94.7%</div>
+      <div class="stat-label">AI Model Accuracy</div>
+    </div>
+  </div>
+
+  <a href="/analyze" class="new-report-btn">
+    <span>+</span> Generate New Medical Report
+  </a>
+
+  <div class="section-title">📋 Recent Reports</div>
+  <div class="reports-table">
+    <div class="table-header">
+      <div class="th">Report ID</div>
+      <div class="th">Patient Name</div>
+      <div class="th">Date</div>
+      <div class="th">Diagnosis (Short)</div>
+      <div class="th">Risk Level</div>
+      <div class="th">Actions</div>
+    </div>
+    {% if reports %}
+      {% for r in reports %}
+      <div class="report-row">
+        <div class="td"><span class="report-id">#{{ r.id }}</span></div>
+        <div class="td" style="font-weight:600;">{{ r.patient }}</div>
+        <div class="td" style="color:var(--gray-600);">{{ r.date }}</div>
+        <div class="td" style="font-size:12px;color:var(--gray-600);">{{ r.diagnosis[:30] }}{% if r.diagnosis|length > 30 %}…{% endif %}</div>
+        <div class="td"><span class="risk-badge risk-{{ r.risk }}">{{ r.risk }}</span></div>
+        <div class="td">
+          <div class="action-btns">
+            <a href="/view_report/{{ r.filename }}" target="_blank" class="btn-sm btn-view">👁 View</a>
+            <a href="/download/{{ r.filename }}" class="btn-sm btn-dl">⬇ PDF</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="icon">🔬</div>
+      <h3>No reports yet</h3>
+      <p>Generate your first AI medical report to get started</p>
+    </div>
+    {% endif %}
+  </div>
+</main>
+</body>
+</html>

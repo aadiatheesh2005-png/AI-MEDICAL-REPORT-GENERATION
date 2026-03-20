@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedAI — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a1628;
+    --royal: #1a3a6b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --success: #059669;
+    --danger: #dc2626;
+    --gray-50: #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-400: #94a3b8;
+    --gray-600: #475569;
+    --gray-800: #1e293b;
+    --white: #ffffff;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--navy);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .bg-orbs {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15;
+    animation: float 8s ease-in-out infinite;
+  }
+  .orb-1 { width: 500px; height: 500px; background: var(--blue); top: -100px; left: -100px; animation-delay: 0s; }
+  .orb-2 { width: 400px; height: 400px; background: #7c3aed; bottom: -100px; right: -100px; animation-delay: 3s; }
+  .orb-3 { width: 300px; height: 300px; background: #0891b2; top: 50%; left: 50%; animation-delay: 1.5s; }
+  @keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(20px,-20px); } }
+
+  .card {
+    position: relative; z-index: 1;
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 48px 44px;
+    width: 440px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    animation: slideUp 0.6s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+
+  .logo {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
+  }
+  .logo-icon {
+    width: 44px; height: 44px; background: var(--blue);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .logo-text { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); font-weight: 700; }
+  .logo-sub { font-size: 11px; color: var(--gray-400); letter-spacing: 0.05em; text-transform: uppercase; }
+
+  h1 { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--white); margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: var(--gray-400); margin-bottom: 32px; }
+
+  .form-group { margin-bottom: 20px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  input {
+    width: 100%; padding: 13px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; color: var(--white); font-size: 15px; font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  input:focus { outline: none; border-color: var(--blue); background: rgba(37,99,235,0.1); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+  input::placeholder { color: var(--gray-400); }
+
+  .btn {
+    width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
+    font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+    background: var(--blue); color: var(--white);
+    transition: all 0.2s; margin-top: 8px;
+    position: relative; overflow: hidden;
+  }
+  .btn:hover { background: var(--blue-light); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+  .switch { text-align: center; margin-top: 24px; font-size: 14px; color: var(--gray-400); }
+  .switch a { color: var(--blue-light); text-decoration: none; font-weight: 600; }
+  .switch a:hover { text-decoration: underline; }
+
+  .error-msg { background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.3); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #fca5a5; margin-bottom: 16px; display: none; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.1); }
+  .divider span { font-size: 12px; color: var(--gray-400); }
+
+  .demo-badge {
+    background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.3);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 20px;
+    font-size: 12px; color: #93c5fd; line-height: 1.6;
+  }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🧬</div>
+    <div>
+      <div class="logo-text">MedAI</div>
+      <div class="logo-sub">Diagnostic Intelligence</div>
+    </div>
+  </div>
+
+  <h1>Welcome Back</h1>
+  <p class="subtitle">Sign in to your medical dashboard</p>
+
+  <div class="demo-badge">
+    💡 <strong>Demo:</strong> Sign up to create a free account. All features are available to everyone.
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <form id="signinForm">
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" name="email" placeholder="doctor@hospital.com" required autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter your password" required>
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Sign In</button>
+  </form>
+
+  <div class="switch">
+    Don't have an account? <a href="/signup">Create one — it's free</a>
+  </div>
+</div>
+
+<script>
+document.getElementById('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const err = document.getElementById('errorMsg');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in...';
+  err.style.display = 'none';
+
+  const fd = new FormData(e.target);
+  const res = await fetch('/signin', { method: 'POST', body: fd });
+  const data = await res.json();
+
+  if (data.success) {
+    btn.innerHTML = '✓ Success!';
+    setTimeout(() => window.location.href = '/dashboard', 500);
+  } else {
+    err.textContent = data.message || 'Sign in failed';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = 'Sign In';
+  }
+});
+</script>
+</body>
+</html>
