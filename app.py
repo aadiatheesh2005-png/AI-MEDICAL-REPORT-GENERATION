@@ -1,188 +1,279 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, flash
-import os, json, uuid, hashlib, datetime, io, base64
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from ml_model import MedicalAIModel
-from pdf_generator import generate_medical_pdf
+import os, json, uuid, datetime, traceback
 
 app = Flask(__name__)
-app.secret_key = 'medai_secret_key_2024_secure'
-UPLOAD_FOLDER = 'static/uploads'
-REPORTS_FOLDER = 'static/reports'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(REPORTS_FOLDER, exist_ok=True)
+app.secret_key = os.environ.get('SECRET_KEY', 'medai-secret-key-2024')
+
+# ── Vercel-compatible paths: use /tmp for all writes ──────────────────────────
+TMP            = '/tmp'
+UPLOAD_FOLDER  = os.path.join(TMP, 'medai_uploads')
+REPORTS_FOLDER = os.path.join(TMP, 'medai_reports')
+USERS_FILE     = os.path.join(TMP, 'users.json')
+REPORTS_META_FILE = os.path.join(TMP, 'reports_meta.json')
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(REPORTS_FOLDER, exist_ok=True)
 
-# Simple file-based user storage
-USERS_FILE = 'users.json'
+# ── Lazy-load heavy deps so cold-start errors surface as JSON ─────────────────
+_model = None
+def get_model():
+    global _model
+    if _model is None:
+        from ml_model import MedicalAIModel
+        _model = MedicalAIModel()
+    return _model
 
+# ── JSON file helpers ─────────────────────────────────────────────────────────
 def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE) as f:
             return json.load(f)
-    return {}
+    demo_users = {
+        'demo@medai.com': {
+            'id': 'demo-user-id',
+            'name': 'Demo Doctor',
+            'email': 'demo@medai.com',
+            'password': generate_password_hash('demo1234'),
+            'created_at': datetime.datetime.now().isoformat()
+        }
+    }
+    save_users(demo_users)
+    return demo_users
 
 def save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f)
 
-def hash_password(pwd):
-    return hashlib.sha256(pwd.encode()).hexdigest()
+def load_reports_meta():
+    if os.path.exists(REPORTS_META_FILE):
+        with open(REPORTS_META_FILE) as f:
+            return json.load(f)
+    return {}
+
+def save_reports_meta(meta):
+    with open(REPORTS_META_FILE, 'w') as f:
+        json.dump(meta, f)
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-ai_model = MedicalAIModel()
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Authentication required'}), 401
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated
 
+# ── Page routes ───────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    if 'user' in session:
+    if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    return redirect(url_for('signin'))
+    return redirect(url_for('login_page'))
 
-@app.route('/signin', methods=['GET', 'POST'])
-def signin():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        users = load_users()
-        if email in users and users[email]['password'] == hash_password(password):
-            session['user'] = email
-            session['name'] = users[email]['name']
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'message': 'Invalid email or password'})
-    return render_template('signin.html')
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        role = request.form.get('role', 'patient')
-        users = load_users()
-        if email in users:
-            return jsonify({'success': False, 'message': 'Email already registered'})
-        users[email] = {
-            'name': name,
-            'password': hash_password(password),
-            'role': role,
-            'created': datetime.datetime.now().isoformat(),
-            'reports': []
-        }
-        save_users(users)
-        session['user'] = email
-        session['name'] = name
-        return jsonify({'success': True})
+@app.route('/signup')
+def signup_page():
     return render_template('signup.html')
 
-@app.route('/logout')
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html', username=session.get('username'))
+
+@app.route('/generate')
+@login_required
+def generate_page():
+    return render_template('generate.html', username=session.get('username'))
+
+@app.route('/reports')
+@login_required
+def reports_page():
+    meta = load_reports_meta()
+    user_reports = [v for v in meta.values() if v.get('user_id') == session['user_id']]
+    user_reports.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    return render_template('reports.html', username=session.get('username'), reports=user_reports)
+
+# ── API routes ────────────────────────────────────────────────────────────────
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'Invalid request'}), 400
+        users = load_users()
+        if data['email'] in users:
+            return jsonify({'success': False, 'message': 'Email already registered'}), 400
+        uid = str(uuid.uuid4())
+        users[data['email']] = {
+            'id': uid,
+            'name': data['name'],
+            'email': data['email'],
+            'password': generate_password_hash(data['password']),
+            'created_at': datetime.datetime.now().isoformat()
+        }
+        save_users(users)
+        return jsonify({'success': True, 'message': 'Account created successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'Invalid request'}), 400
+        users = load_users()
+        user = users.get(data.get('email', ''))
+        if not user or not check_password_hash(user['password'], data.get('password', '')):
+            return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+        session['user_id'] = user['id']
+        session['username'] = user['name']
+        session['email'] = data['email']
+        return jsonify({'success': True, 'message': 'Login successful'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
-    return redirect(url_for('signin'))
+    return jsonify({'success': True})
 
-@app.route('/dashboard')
-def dashboard():
-    if 'user' not in session:
-        return redirect(url_for('signin'))
-    users = load_users()
-    user_data = users.get(session['user'], {})
-    reports = user_data.get('reports', [])
-    return render_template('dashboard.html', name=session['name'], reports=reports, email=session['user'])
-
-@app.route('/analyze', methods=['GET', 'POST'])
+@app.route('/api/analyze', methods=['POST'])
+@login_required
 def analyze():
-    if 'user' not in session:
-        return redirect(url_for('signin'))
-    if request.method == 'GET':
-        return render_template('analyze.html', name=session['name'])
+    try:
+        patient_data = {
+            'name':               request.form.get('patient_name', 'Unknown'),
+            'age':                request.form.get('age', ''),
+            'gender':             request.form.get('gender', ''),
+            'weight':             request.form.get('weight', ''),
+            'height':             request.form.get('height', ''),
+            'blood_pressure_sys': request.form.get('blood_pressure_sys', ''),
+            'blood_pressure_dia': request.form.get('blood_pressure_dia', ''),
+            'heart_rate':         request.form.get('heart_rate', ''),
+            'temperature':        request.form.get('temperature', ''),
+            'glucose':            request.form.get('glucose', ''),
+            'cholesterol':        request.form.get('cholesterol', ''),
+            'hemoglobin':         request.form.get('hemoglobin', ''),
+            'oxygen_saturation':  request.form.get('oxygen_saturation', ''),
+            'symptoms':           request.form.get('symptoms', ''),
+            'medical_history':    request.form.get('medical_history', ''),
+            'medications':        request.form.get('medications', ''),
+            'doctor_name':        request.form.get('doctor_name', 'Dr. AI System'),
+            'hospital':           request.form.get('hospital', 'MedAI Hospital'),
+        }
 
-    # Collect patient data
-    patient_data = {
-        'name': request.form.get('patient_name', 'Unknown'),
-        'age': int(request.form.get('age', 30)),
-        'gender': request.form.get('gender', 'Unknown'),
-        'symptoms': request.form.get('symptoms', ''),
-        'blood_pressure': request.form.get('blood_pressure', '120/80'),
-        'heart_rate': int(request.form.get('heart_rate', 72)),
-        'temperature': float(request.form.get('temperature', 98.6)),
-        'oxygen_saturation': int(request.form.get('oxygen_saturation', 98)),
-        'glucose': int(request.form.get('glucose', 100)),
-        'cholesterol': int(request.form.get('cholesterol', 180)),
-        'weight': float(request.form.get('weight', 70)),
-        'height': float(request.form.get('height', 170)),
-        'medical_history': request.form.get('medical_history', ''),
-        'medications': request.form.get('medications', ''),
-        'allergies': request.form.get('allergies', ''),
-        'report_date': datetime.datetime.now().strftime('%B %d, %Y'),
-        'report_time': datetime.datetime.now().strftime('%H:%M'),
-        'doctor_name': session['name'],
-        'doctor_email': session['user']
-    }
+        image_paths = []
+        if 'images' in request.files:
+            files = request.files.getlist('images')
+            for f in files:
+                if f and allowed_file(f.filename):
+                    fname = secure_filename(f.filename)
+                    unique_name = f'{uuid.uuid4()}_{fname}'
+                    fpath = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+                    f.save(fpath)
+                    image_paths.append(fpath)
 
-    # Handle image upload
-    image_path = None
-    image_analysis = None
-    if 'medical_image' in request.files:
-        file = request.files['medical_image']
-        if file and file.filename and allowed_file(file.filename):
-            filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(image_path)
-            image_analysis = ai_model.analyze_image(image_path)
+        model = get_model()
+        prediction = model.predict(patient_data, image_paths)
 
-    # Run AI analysis
-    ai_result = ai_model.predict(patient_data)
+        from pdf_generator import generate_medical_pdf
+        report_id    = str(uuid.uuid4())[:8].upper()
+        pdf_filename = f'report_{report_id}.pdf'
+        pdf_path     = os.path.join(REPORTS_FOLDER, pdf_filename)
+        generate_medical_pdf(patient_data, prediction, image_paths,
+                             pdf_path, report_id, session.get('username'))
 
-    # Generate PDF
-    report_id = str(uuid.uuid4())[:8].upper()
-    pdf_filename = f"report_{report_id}.pdf"
-    pdf_path = os.path.join(REPORTS_FOLDER, pdf_filename)
+        meta = load_reports_meta()
+        meta[report_id] = {
+            'report_id':    report_id,
+            'user_id':      session['user_id'],
+            'patient_name': patient_data['name'],
+            'created_at':   datetime.datetime.now().isoformat(),
+            'pdf_file':     pdf_filename,
+            'risk_level':   prediction['risk_level'],
+            'diagnosis':    prediction['primary_diagnosis'],
+        }
+        save_reports_meta(meta)
 
-    generate_medical_pdf(patient_data, ai_result, image_analysis, image_path, pdf_path, report_id)
+        return jsonify({
+            'success':    True,
+            'report_id':  report_id,
+            'prediction': prediction,
+            'pdf_url':    f'/api/download/{report_id}',
+        })
 
-    # Save report reference to user
-    users = load_users()
-    report_entry = {
-        'id': report_id,
-        'patient': patient_data['name'],
-        'date': patient_data['report_date'],
-        'diagnosis': ai_result.get('primary_diagnosis', 'General Assessment'),
-        'risk': ai_result.get('risk_level', 'Low'),
-        'filename': pdf_filename
-    }
-    users[session['user']]['reports'] = users[session['user']].get('reports', [])
-    users[session['user']]['reports'].insert(0, report_entry)
-    save_users(users)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-    return jsonify({
-        'success': True,
-        'report_id': report_id,
-        'pdf_url': f'/download/{pdf_filename}',
-        'diagnosis': ai_result.get('primary_diagnosis'),
-        'risk': ai_result.get('risk_level'),
-        'confidence': ai_result.get('confidence')
-    })
+@app.route('/api/reports_data')
+@login_required
+def reports_data():
+    try:
+        meta = load_reports_meta()
+        user_reports = [v for v in meta.values() if v.get('user_id') == session['user_id']]
+        user_reports.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        total  = len(user_reports)
+        low    = sum(1 for r in user_reports if r.get('risk_level') == 'low')
+        medium = sum(1 for r in user_reports if r.get('risk_level') == 'medium')
+        high   = sum(1 for r in user_reports if r.get('risk_level') == 'high')
+        return jsonify({
+            'total': total, 'low': low, 'medium': medium, 'high': high,
+            'reports': user_reports[:10],
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/download/<filename>')
-def download(filename):
-    if 'user' not in session:
-        return redirect(url_for('signin'))
-    path = os.path.join(REPORTS_FOLDER, filename)
-    if os.path.exists(path):
-        return send_file(path, as_attachment=True, download_name=filename)
-    return "File not found", 404
+@app.route('/api/download/<report_id>')
+@login_required
+def download_report(report_id):
+    try:
+        meta   = load_reports_meta()
+        report = meta.get(report_id)
+        if not report or report['user_id'] != session['user_id']:
+            return jsonify({'error': 'Not found'}), 404
+        pdf_path = os.path.join(REPORTS_FOLDER, report['pdf_file'])
+        if not os.path.exists(pdf_path):
+            return jsonify({'error': 'PDF expired — please regenerate the report'}), 404
+        return send_file(pdf_path, as_attachment=True,
+                         download_name=f'MedAI_Report_{report_id}.pdf')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-@app.route('/view_report/<filename>')
-def view_report(filename):
-    if 'user' not in session:
-        return redirect(url_for('signin'))
-    path = os.path.join(REPORTS_FOLDER, filename)
-    if os.path.exists(path):
-        return send_file(path, mimetype='application/pdf')
-    return "Not found", 404
+# ── Global error handlers ─────────────────────────────────────────────────────
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return render_template('login.html'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({'error': 'Internal server error', 'detail': str(e)}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    traceback.print_exc()
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': str(e)}), 500
+    return render_template('login.html'), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
